@@ -5,11 +5,13 @@ import os
 import subprocess
 import threading
 import time
+import pickle
 from tkinter import *
 from tkinter.ttk import *
 
-VERSION = '4.0'
-LOGGING = True
+VERSION = '5.0'
+LOGGING = False
+PRINTING = False
 
 
 class DATA():
@@ -83,7 +85,7 @@ class App():
 		self.frame.master.title(f'eDrawing Finder v{VERSION}')
 		self.frame.pack()
 
-		self.root.bind('<Return>', self.findDrawing)
+		self.root.bind('<Return>', self.search)
 		self.root.iconbitmap(data.resource_path('resources\\logo.ico'))
 
 		self.frame_drawings = Frame(self.root)
@@ -101,14 +103,14 @@ class App():
 		self.inputField.grid(row=1, column=1, columnspan=12, padx=35, pady=1)
 		self.inputField.focus()
 
-		self.selectedType = IntVar()
-		self.radioButtonType = Radiobutton(self.frame, text='OP', variable=self.selectedType, value=0)
-		self.radioButtonType.grid(row=2, column=6)
-		self.radioButtonType = Radiobutton(self.frame, text='BM', variable=self.selectedType, value=1)
-		self.radioButtonType.grid(row=2, column=7)
+		# self.selectedType = IntVar()
+		# self.radioButtonType = Radiobutton(self.frame, text='OP', variable=self.selectedType, value=0)
+		# self.radioButtonType.grid(row=2, column=6)
+		# self.radioButtonType = Radiobutton(self.frame, text='BM', variable=self.selectedType, value=1)
+		# self.radioButtonType.grid(row=2, column=7)
 
 		self.button_width = 10
-		self.searchButton = Button(self.frame, text="Search", width=self.button_width, command=self.findDrawing)
+		self.searchButton = Button(self.frame, text="Search", width=self.button_width, command=self.search)
 		self.searchButton.grid(row=3, column=6, pady=2)
 
 		self.openButton = Button(self.frame, text="Open", width=self.button_width, command=self.openDrawing)
@@ -119,6 +121,14 @@ class App():
 		self.frame_info.pack()
 		self.infoLabel = Label(self.frame_info, text='')
 		self.infoLabel.pack(side=BOTTOM, padx=2)
+
+		self.root.update()
+		self.root.minsize(self.root.winfo_width(), self.root.winfo_height())
+
+		self.index = dict()
+		self.op_index = 'op_database.p'
+		self.bm_index = 'bm_database.p'
+		self.raw_index = self.op_index
 
 	def displayButtons(self):
 		if self.drawingsRadio_instances != []:
@@ -157,15 +167,13 @@ class App():
 		else:
 			self.change_info('No File Selected.')
 
-	def findDrawing(self, full_check=False):
-		search_start = time.time()
+	def search(self, full_check=False):
 		keyword = self.inputField.get()
 		self.inputField.delete(30, END)
 		error_state = False
-		result = []
+		results = []
 		invalid = False
-		OP = (self.selectedType.get() == 0)
-
+		# self.raw_index = (self.selectedType.get())
 
 		for i in range(len(keyword)):
 			if keyword[i] in ['\\', '/', '.',] or keyword[0] == ' ' or keyword[-1] == ' ':
@@ -178,46 +186,21 @@ class App():
 			if LOGGING:
 				Log.log('Invalid')
 
-		elif not OP:
-			if result == []:
-				self.change_info('Searching All Files... Please Wait.')
-				result = glob.iglob(f'H:\\DWG\\BM\\**\\{keyword}*.*', recursive=True)
-
-				if LOGGING:
-					Log.log('Searched')
-
-
 		else:
-			self.change_info('Performing Quick Search...')
-			counter = 3
-			while counter > 0:
-				search_path = f'H:\\DWG\\OP{keyword[:counter]}*\\{keyword}*.*'
-				# print(search_path)
-				result += glob.iglob(search_path, recursive=True)
-				counter -= 1
-
-			if full_check and result == []:
-				self.change_info('Searching All Files... Please Wait.')
-				result += glob.iglob(f'H:\\DWG\\**\\{keyword}*.*', recursive=True)
-
+			results = self.index_search()
 			if LOGGING:
 				Log.log('Searched')
 
-
-		if result != []:
+		if results != []:
 			if LOGGING:
 				Log.log('Found')
 
-
-			result = sorted(list(set(result)))
-			result.reverse()
-
-			if len(result) > self.drawing_limit:
+			if len(results) > self.drawing_limit:
 				self.drawingsOverLimit = True
-				message = f'{str(len(result))} results matching {keyword} found. [First {self.drawing_limit} displayed]'
+				message = f'{str(len(results))} results matching {keyword} found. [First {self.drawing_limit} displayed]'
 			else:
 				self.drawingsOverLimit = False
-				message = f'{str(len(result))} results matching {keyword} found.'
+				message = f'{str(len(results))} results matching {keyword} found.'
 			
 			self.change_info(message)
 
@@ -225,17 +208,85 @@ class App():
 			if not error_state:
 				self.change_info(f'No results matching {keyword} found.')
 
-		self.drawings = result
-		# print(self.drawings)
+
+		self.drawings = results
 		self.displayButtons()
 
+	def create_index(self):
+		self.change_info('Creating search database... Please Wait.')
+		t1=time.time()
+		path = 'H:\\DWG\\'
+		self.file_scan(path)
+		pickle_file = open(self.raw_index , "wb") 
+		pickle.dump(self.index, pickle_file) 
+		pickle_file.close()
+		t2=time.time()
+		total =t2-t1
+		if PRINTING:
+			print("Time taken to create " , total)
 
-		search_finish  = time.time()
-		print(f'Time Elapsed: {round(search_finish-search_start, 2)}s')
+	def check_index(self):
+		return os.path.isfile(self.raw_index)
+
+	def file_scan(self, drive):
+		for root, dir, files in os.walk(drive, topdown = True):
+			if 'OP' in root:
+				for file in files:
+					if file in self.index:
+						file = file + "_1"
+						self.index[file]= root
+					else :
+						self.index[file]= root
+
+	def index_search(self):
+		t1 = time.time()
+		
+
+		try:
+			pickle_file  = open(self.raw_index, "rb")
+			dict_index = pickle.load(pickle_file)  
+			pickle_file.close()
+
+		except IOError:
+			self.create_index()
+			pickle_file  = open(self.raw_index, "rb")
+			dict_index = pickle.load(pickle_file)  
+			pickle_file.close()
+
+		except Exception as e:
+			if PRINTING:
+				print(e)
+			sys.exit()
+
+		keyword = self.inputField.get()
+		self.inputField.delete(30, END)
+
+		results = []
+
+		for key in dict_index:
+			if re.search(keyword, key):
+				hit = f'{dict_index[key]}'+'\\'+f'{key}'
+				results.append(hit)
+		
+		results.sort(key=len, reverse=False)
+
+		if PRINTING:
+			print("Path \t\t: File-name")
+			for each in results:
+				print(each)
+				print("---------------------------------")
+			t2 = time.time()
+			total =t2-t1
+			print("Total files are", len(results))
+			print("Time taken to search " , total)
+
+		return results
 
 data = DATA()
 Log = LOGGER()
 
 app = App()
+
 app.root.mainloop()
+
 
