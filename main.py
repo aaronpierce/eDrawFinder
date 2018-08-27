@@ -287,4 +287,7 @@ Log = LOGGER()
 
 app = App()
 
+<<<<<<< HEAD
 app.root.mainloop()
+=======
+>>>>>>> master
