@@ -1,27 +1,28 @@
-from tkinter import *
-from tkinter.ttk import *
+import errno
+import glob
+import json
 import os
 import subprocess
-import glob
-import time
-import json
-import errno
 import threading
+import time
+from tkinter import *
+from tkinter.ttk import *
 
 VERSION = '4.0'
 LOGGING = True
 
+
 class DATA():
 
 	def resource_path(self, relative_path):
-	    """ Get absolute path to resource, works for dev and for PyInstaller """
-	    try:
-	        # PyInstaller creates a temp folder and stores path in _MEIPASS
-	        base_path = sys._MEIPASS
-	    except Exception:
-	        base_path = os.path.abspath(".")
+		""" Get absolute path to resource, works for dev and for PyInstaller """
+		try:
+			# PyInstaller creates a temp folder and stores path in _MEIPASS
+			base_path = sys._MEIPASS
+		except Exception:
+			base_path = os.path.abspath(".")
 
-	    return os.path.join(base_path, relative_path)
+		return os.path.join(base_path, relative_path)
 
 class LOGGER():
 
@@ -180,7 +181,8 @@ class App():
 		elif not OP:
 			if result == []:
 				self.change_info('Searching All Files... Please Wait.')
-				result = glob.glob(f'H:\\DWG\\BM\\**\\{keyword}*.*', recursive=True)
+				result = glob.iglob(f'H:\\DWG\\BM\\**\\{keyword}*.*', recursive=True)
+
 				if LOGGING:
 					Log.log('Searched')
 
@@ -190,13 +192,13 @@ class App():
 			counter = 3
 			while counter > 0:
 				search_path = f'H:\\DWG\\OP{keyword[:counter]}*\\{keyword}*.*'
-				#print(search_path)
-				result += glob.glob(search_path, recursive=True)
+				# print(search_path)
+				result += glob.iglob(search_path, recursive=True)
 				counter -= 1
 
 			if full_check and result == []:
 				self.change_info('Searching All Files... Please Wait.')
-				result += glob.glob(f'H:\\DWG\\**\\{keyword}*.*', recursive=True)
+				result += glob.iglob(f'H:\\DWG\\**\\{keyword}*.*', recursive=True)
 
 			if LOGGING:
 				Log.log('Searched')
@@ -224,12 +226,12 @@ class App():
 				self.change_info(f'No results matching {keyword} found.')
 
 		self.drawings = result
-		#print(self.drawings)
+		# print(self.drawings)
 		self.displayButtons()
 
 
 		search_finish  = time.time()
-		#print(f'Time Elapsed: {round(search_finish-search_start, 2)}s')
+		print(f'Time Elapsed: {round(search_finish-search_start, 2)}s')
 
 data = DATA()
 Log = LOGGER()
