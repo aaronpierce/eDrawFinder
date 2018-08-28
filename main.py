@@ -10,14 +10,15 @@ from tkinter.ttk import *
 
 VERSION = '5.2'
 LOGGING = False
-PRINTING = True
-PREBUILD = False
+PRINTING = False
+PREBUILD = True
 
-
+s
 class DATA():
 
 	def __init__(self):
 		self.app_data = os.getenv('LOCALAPPDATA')
+		self.log_path = os.path.join(self.app_data, 'log.json')
 		self.app_data_path = os.path.join(self.app_data, 'eDrawingFinder')
 		if not os.path.exists(self.app_data_path):
 			try:
@@ -49,12 +50,8 @@ class DATA():
 	        if exception.errno != errno.EEXIST:
 	            raise
 
-	    self.log_path = os.path.join(path, 'log.json')
-
+	    
 	def log(self, outcome):
-
-		if self.log_path == '':
-			self.check_appdata()
 
 		if not os.path.exists(self.log_path):
 			data = {}
@@ -141,7 +138,6 @@ class App():
 		self.index = {}
 		self.update_avaliable = True
 		
-
 		self.threading = False
 		self.task = None
 		self.init_index = False
@@ -183,7 +179,7 @@ class App():
 		else:
 			self.change_info('No File Selected.')
 
-	def search(self, full_check=False):
+	def search(self):
 		keyword = self.inputField.get()
 		error_state = False
 		results = []
@@ -344,5 +340,3 @@ if PREBUILD:
 	app.pre_build()
 
 app.root.mainloop()
-
-
