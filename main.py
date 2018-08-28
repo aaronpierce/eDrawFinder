@@ -13,7 +13,6 @@ LOGGING = False
 PRINTING = False
 PREBUILD = True
 
-s
 class DATA():
 
 	def __init__(self):
