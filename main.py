@@ -1,5 +1,4 @@
 import errno
-import glob
 import json
 import os
 import subprocess
@@ -9,12 +8,24 @@ import pickle
 from tkinter import *
 from tkinter.ttk import *
 
-VERSION = '5.0'
+VERSION = '5.2'
 LOGGING = False
-PRINTING = False
+PRINTING = True
+PREBUILD = False
 
 
 class DATA():
+
+	def __init__(self):
+		self.app_data = os.getenv('LOCALAPPDATA')
+		self.app_data_path = os.path.join(self.app_data, 'eDrawingFinder')
+		if not os.path.exists(self.app_data_path):
+			try:
+				os.makedirs(self.app_data_path)
+			except OSError as exception:
+				self.app_data_path = os.getcwd()
+				if exception.errno != errno.EEXIST:
+					raise
 
 	def resource_path(self, relative_path):
 		""" Get absolute path to resource, works for dev and for PyInstaller """
@@ -26,18 +37,13 @@ class DATA():
 
 		return os.path.join(base_path, relative_path)
 
-class LOGGER():
-
-	def __init__(self):
-		self.log_path = ''
 
 	def check_appdata(self):
-
 	    app_data = os.getenv('LOCALAPPDATA')
-	    path = os.path.join(app_data, 'eDrawingFinder')
+	    self.path = os.path.join(app_data, 'eDrawingFinder')
 
 	    try:
-	        os.makedirs(path)
+	        os.makedirs(self.path)
 
 	    except OSError as exception:
 	        if exception.errno != errno.EEXIST:
@@ -116,19 +122,29 @@ class App():
 		self.openButton = Button(self.frame, text="Open", width=self.button_width, command=self.openDrawing)
 		self.openButton.grid(row=3, column=7, pady=2)
 
-
 		self.frame_info = Frame(self.root)
 		self.frame_info.pack()
 		self.infoLabel = Label(self.frame_info, text='')
 		self.infoLabel.pack(side=BOTTOM, padx=2)
 
+		# self.testButton = Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.create_index)
+		# self.testButton.pack(side=BOTTOM, padx=2)
+
 		self.root.update()
 		self.root.minsize(self.root.winfo_width(), self.root.winfo_height())
 
-		self.index = dict()
-		self.op_index = 'op_database.p'
-		self.bm_index = 'bm_database.p'
+		self.appdata_file = data.app_data_path
+		self.index_builder = dict()
+		self.op_index = os.path.join(data.app_data_path, 'op_database.p')
+		self.bm_index = os.path.join(data.app_data_path, 'bm_database.p')
 		self.raw_index = self.op_index
+		self.index = {}
+		self.update_avaliable = True
+		
+
+		self.threading = False
+		self.task = None
+		self.init_index = False
 
 	def displayButtons(self):
 		if self.drawingsRadio_instances != []:
@@ -162,14 +178,13 @@ class App():
 		if not self.selectedDrawing.get() == '':
 			os.startfile(self.selectedDrawing.get(), 'open')
 			if LOGGING:
-				Log.log('Opened')
+				data.log('Opened')
 
 		else:
 			self.change_info('No File Selected.')
 
 	def search(self, full_check=False):
 		keyword = self.inputField.get()
-		self.inputField.delete(30, END)
 		error_state = False
 		results = []
 		invalid = False
@@ -184,16 +199,16 @@ class App():
 			self.change_info('Enter a valid part number.')
 			result = []
 			if LOGGING:
-				Log.log('Invalid')
+				data.log('Invalid')
 
 		else:
 			results = self.index_search()
 			if LOGGING:
-				Log.log('Searched')
+				data.log('Searched')
 
-		if results != []:
+		if results != [] and results != None:
 			if LOGGING:
-				Log.log('Found')
+				data.log('Found')
 
 			if len(results) > self.drawing_limit:
 				self.drawingsOverLimit = True
@@ -204,68 +219,108 @@ class App():
 			
 			self.change_info(message)
 
+		elif results == None:
+			self.change_info('Currently building index... Please wait to search.')
+			return
+
 		else:
 			if not error_state:
 				self.change_info(f'No results matching {keyword} found.')
 
-
 		self.drawings = results
+		self.inputField.delete(0, END)
 		self.displayButtons()
 
 	def create_index(self):
-		self.change_info('Creating search database... Please Wait.')
+		if PRINTING:
+			print('Building Index')
+
+		if not self.index_exists():
+			self.change_info('Currently building index... Please wait to search.')
+
 		t1=time.time()
 		path = 'H:\\DWG\\'
 		self.file_scan(path)
 		pickle_file = open(self.raw_index , "wb") 
-		pickle.dump(self.index, pickle_file) 
+		pickle.dump(self.index_builder, pickle_file) 
 		pickle_file.close()
 		t2=time.time()
 		total =t2-t1
-		if PRINTING:
-			print("Time taken to create " , total)
 
-	def check_index(self):
-		return os.path.isfile(self.raw_index)
+		self.update_avaliable = True
+
+		if PRINTING:
+			print(f"Time taken to create index: {round(total, 4)}s\n")
+
+		if self.init_index:
+			self.change_info(f'Index database created. [Time Taken: {round(total, 2)}s]')
+			self.init_index = False
+
+	def index_exists(self):
+		filepath = os.path.join(os.getcwd(), self.op_index)
+		exists = os.path.isfile(filepath)
+		if not exists:
+			self.init_index = True
+
+		return exists
+
+	def pre_build(self):
+		self.task = threading.Thread(target=self.create_index)
+		self.task.start()
+		self.threading = True
 
 	def file_scan(self, drive):
 		for root, dir, files in os.walk(drive, topdown = True):
 			if 'OP' in root:
 				for file in files:
-					if file in self.index:
-						file = file + "_1"
-						self.index[file]= root
+					if file in self.index_builder:
+						pass
 					else :
-						self.index[file]= root
+						self.index_builder[file]= root
+
+	def thread_running(self):
+		if self.task != None:
+			self.threadding = self.task.isAlive()
+		else:
+			self.threading = False
+
+		return self.threading
+
+	def load_pickle_index(self):
+		pickle_file  = open(self.raw_index, "rb")
+		self.index = pickle.load(pickle_file)  
+		pickle_file.close()
+		self.update_avaliable = False
 
 	def index_search(self):
 		t1 = time.time()
-		
+		if self.update_avaliable:
 
-		try:
-			pickle_file  = open(self.raw_index, "rb")
-			dict_index = pickle.load(pickle_file)  
-			pickle_file.close()
+			try:
+				self.load_pickle_index()
 
-		except IOError:
-			self.create_index()
-			pickle_file  = open(self.raw_index, "rb")
-			dict_index = pickle.load(pickle_file)  
-			pickle_file.close()
+			except IOError:
+				if not self.thread_running():
+					self.create_index()
+					self.load_pickle_index()
 
-		except Exception as e:
-			if PRINTING:
-				print(e)
-			sys.exit()
+				else:
+					self.change_info('Currently building index... Please wait.')
+					return
+
+			except Exception as e:
+				if PRINTING:
+					print(e)
+				sys.exit()
 
 		keyword = self.inputField.get()
 		self.inputField.delete(30, END)
 
 		results = []
 
-		for key in dict_index:
+		for key in self.index:
 			if re.search(keyword, key):
-				hit = f'{dict_index[key]}'+'\\'+f'{key}'
+				hit = f'{self.index[key]}'+'\\'+f'{key}'
 				results.append(hit)
 		
 		results.sort(key=len, reverse=False)
@@ -278,14 +333,15 @@ class App():
 			t2 = time.time()
 			total =t2-t1
 			print("Total files are", len(results))
-			print("Time taken to search " , total)
+			print(f"Time taken to search: {round(total, 4)}s\n")
 
 		return results
 
 data = DATA()
-Log = LOGGER()
 
 app = App()
+if PREBUILD:
+	app.pre_build()
 
 app.root.mainloop()
 
