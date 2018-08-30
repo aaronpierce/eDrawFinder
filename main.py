@@ -8,7 +8,7 @@ import pickle
 from tkinter import *
 from tkinter.ttk import *
 
-VERSION = '1.6.2'
+VERSION = '1.6.3'
 LOGGING = False
 PRINTING = False
 PREBUILD = True
@@ -183,6 +183,7 @@ class App():
 		error_state = False
 		results = []
 		invalid = False
+
 		if self.is_search_OP.get():
 			self.current_index_path = self.op_index_path
 		else:
@@ -268,7 +269,7 @@ class App():
 			if index == self.op_index_path:
 				self.init_op_index = False
 			else:
-				self.init_bm_index = True
+				self.init_bm_index = False
 
 	def index_exists(self, index):
 		exists = os.path.isfile(index)
