@@ -1,4 +1,4 @@
 *.lnk
-\__pycache__
-\BuildFolder
-\Versions
+/__pycache__
+/BuildFolder
+/Versions
