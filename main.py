@@ -8,10 +8,11 @@ import pickle
 from tkinter import *
 from tkinter.ttk import *
 
-VERSION = '5.2'
+VERSION = '1.6.2'
 LOGGING = False
 PRINTING = False
 PREBUILD = True
+
 
 class DATA():
 
@@ -36,19 +37,6 @@ class DATA():
 			base_path = os.path.abspath(".")
 
 		return os.path.join(base_path, relative_path)
-
-
-	def check_appdata(self):
-	    app_data = os.getenv('LOCALAPPDATA')
-	    self.path = os.path.join(app_data, 'eDrawingFinder')
-
-	    try:
-	        os.makedirs(self.path)
-
-	    except OSError as exception:
-	        if exception.errno != errno.EEXIST:
-	            raise
-
 	    
 	def log(self, outcome):
 
@@ -88,6 +76,10 @@ class App():
 		self.frame.pack()
 
 		self.root.bind('<Return>', self.search)
+		self.root.bind('<Up>', self.pull_history)
+		self.root.bind('<Down>', self.pull_history)
+		self.root.bind('<Left>', self.change_radio_select)
+		self.root.bind('<Right>', self.change_radio_select)
 		self.root.iconbitmap(data.resource_path('resources\\logo.ico'))
 
 		self.frame_drawings = Frame(self.root)
@@ -98,6 +90,16 @@ class App():
 		self.drawingsOverLimit = False
 		self.drawing_limit = 15
 
+		self.appdata_file = data.app_data_path
+		self.index_builder = dict()
+		self.op_index_path = os.path.join(data.app_data_path, 'op_database.p')
+		self.bm_index_path = os.path.join(data.app_data_path, 'bm_database.p')
+		self.current_index_path = self.op_index_path
+		self.op_index = {}
+		self.bm_index = {}
+		self.index = {}
+		self.update_avaliable = True
+
 		self.inputLabel = Label(self.frame, text="Enter an Item Number Below:")
 		self.inputLabel.grid(row=0, column=1, columnspan=12, pady=1)
 
@@ -105,11 +107,12 @@ class App():
 		self.inputField.grid(row=1, column=1, columnspan=12, padx=35, pady=1)
 		self.inputField.focus()
 
-		# self.selectedType = IntVar()
-		# self.radioButtonType = Radiobutton(self.frame, text='OP', variable=self.selectedType, value=0)
-		# self.radioButtonType.grid(row=2, column=6)
-		# self.radioButtonType = Radiobutton(self.frame, text='BM', variable=self.selectedType, value=1)
-		# self.radioButtonType.grid(row=2, column=7)
+		self.is_search_OP = IntVar()
+		self.radioButtonType = Radiobutton(self.frame, text='OP', variable=self.is_search_OP, value=1)
+		self.radioButtonType.grid(row=2, column=6)
+		self.radioButtonType = Radiobutton(self.frame, text='BM', variable=self.is_search_OP, value=0)
+		self.radioButtonType.grid(row=2, column=7)
+		self.is_search_OP.set(1)
 
 		self.button_width = 10
 		self.searchButton = Button(self.frame, text="Search", width=self.button_width, command=self.search)
@@ -123,23 +126,19 @@ class App():
 		self.infoLabel = Label(self.frame_info, text='')
 		self.infoLabel.pack(side=BOTTOM, padx=2)
 
-		# self.testButton = Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.create_index)
+		# self.testButton = Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.load_pickle_index)
 		# self.testButton.pack(side=BOTTOM, padx=2)
 
 		self.root.update()
 		self.root.minsize(self.root.winfo_width(), self.root.winfo_height())
-
-		self.appdata_file = data.app_data_path
-		self.index_builder = dict()
-		self.op_index = os.path.join(data.app_data_path, 'op_database.p')
-		self.bm_index = os.path.join(data.app_data_path, 'bm_database.p')
-		self.raw_index = self.op_index
-		self.index = {}
-		self.update_avaliable = True
 		
+		self.threads = []
 		self.threading = False
-		self.task = None
-		self.init_index = False
+		self.init_op_index = False
+		self.init_bm_index = False
+
+		self.previous_search = []
+		self.previous_counter = 0
 
 	def displayButtons(self):
 		if self.drawingsRadio_instances != []:
@@ -178,12 +177,16 @@ class App():
 		else:
 			self.change_info('No File Selected.')
 
-	def search(self):
-		keyword = self.inputField.get()
+	def search(self, keypress=False):
+		keyword = self.inputField.get().upper()
+		self.previous_counter = 0
 		error_state = False
 		results = []
 		invalid = False
-		# self.raw_index = (self.selectedType.get())
+		if self.is_search_OP.get():
+			self.current_index_path = self.op_index_path
+		else:
+			self.current_index_path = self.bm_index_path
 
 		for i in range(len(keyword)):
 			if keyword[i] in ['\\', '/', '.',] or keyword[0] == ' ' or keyword[-1] == ' ':
@@ -197,6 +200,13 @@ class App():
 				data.log('Invalid')
 
 		else:
+			if keyword not in self.previous_search:
+				self.previous_search.insert(0, keyword)
+				if len(self.previous_search) > 15:
+					self.previous_search.pop(-1) 
+			else:
+				self.previous_search.insert(0, self.previous_search.pop(self.previous_search.index(keyword)))
+
 			results = self.index_search()
 			if LOGGING:
 				data.log('Searched')
@@ -220,23 +230,29 @@ class App():
 
 		else:
 			if not error_state:
-				self.change_info(f'No results matching {keyword} found.')
+				v = 'OP'
+				if not self.is_search_OP.get():
+					v = 'BM'
+				self.change_info(f'No {v} results matching {keyword} found.')
 
 		self.drawings = results
 		self.inputField.delete(0, END)
 		self.displayButtons()
 
-	def create_index(self):
+	def create_index(self, index):
 		if PRINTING:
-			print('Building Index')
+			print(f'Building {index[-13::]}')
 
-		if not self.index_exists():
+		if not self.index_exists(index):
 			self.change_info('Currently building index... Please wait to search.')
 
 		t1=time.time()
 		path = 'H:\\DWG\\'
+		if index == self.bm_index_path:
+			path += 'BM\\'
+
 		self.file_scan(path)
-		pickle_file = open(self.raw_index , "wb") 
+		pickle_file = open(index , "wb") 
 		pickle.dump(self.index_builder, pickle_file) 
 		pickle_file.close()
 		t2=time.time()
@@ -245,52 +261,108 @@ class App():
 		self.update_avaliable = True
 
 		if PRINTING:
-			print(f"Time taken to create index: {round(total, 4)}s\n")
+			print(f"\nTime taken to create {index[-13::]}: {round(total, 4)}s")
 
-		if self.init_index:
+		if self.init_op_index or self.init_bm_index:
 			self.change_info(f'Index database created. [Time Taken: {round(total, 2)}s]')
-			self.init_index = False
+			if index == self.op_index_path:
+				self.init_op_index = False
+			else:
+				self.init_bm_index = True
 
-	def index_exists(self):
-		filepath = os.path.join(os.getcwd(), self.op_index)
-		exists = os.path.isfile(filepath)
+	def index_exists(self, index):
+		exists = os.path.isfile(index)
 		if not exists:
-			self.init_index = True
-
+			if index == self.op_index_path:
+				self.init_op_index = True
+			else:
+				self.init_bm_index = True
 		return exists
 
+	def pull_history(self, keypress):
+		clear_field = False
+		if keypress.keysym == 'Up' and self.previous_search != []:
+
+			if self.previous_search != [] and self.inputField.get() == '' and self.previous_counter == 0:
+				self.inputField.delete(0, END)
+				self.inputField.insert(0, self.previous_search[self.previous_counter])
+
+			elif (self.previous_counter + 1) < len(self.previous_search):
+				self.previous_counter += 1
+
+		elif keypress.keysym == 'Down' and self.previous_search != []:
+
+			if self.previous_counter > 0:
+				self.previous_counter -= 1
+			else:
+				clear_field = True
+
+		else:
+			return
+
+		self.inputField.delete(0, END)
+
+		if not clear_field:
+			self.inputField.insert(0, self.previous_search[self.previous_counter])
+		else:
+			self.inputField.insert(0, '')
+
+	def change_radio_select(self, keypress=False):
+		if self.is_search_OP.get() == 0:
+			self.is_search_OP.set(1)
+		else:
+			self.is_search_OP.set(0)
+
 	def pre_build(self):
-		self.task = threading.Thread(target=self.create_index)
-		self.task.start()
+		indexes = [self.op_index_path, self.bm_index_path]
+		self.threads = []
+		for i in indexes:
+			task = threading.Thread(target=self.create_index, args=[i])
+			task.start()
+			self.threads.append(task)
 		self.threading = True
 
 	def file_scan(self, drive):
-		for root, dir, files in os.walk(drive, topdown = True):
-			if 'OP' in root:
+		if drive == 'H:\\DWG\\':
+			for root, dir, files in os.walk(drive, topdown = True):
+				if 'OP' in root:
+					for file in files:
+						if file in self.index_builder:
+							pass
+						else:
+							self.index_builder[file]= root
+		else:
+			for root, dir, files in os.walk(drive, topdown = True):
 				for file in files:
 					if file in self.index_builder:
 						pass
-					else :
+					else:
 						self.index_builder[file]= root
 
 	def thread_running(self):
-		if self.task != None:
-			self.threadding = self.task.isAlive()
-		else:
-			self.threading = False
+		running = []
+		for ea in self.threads:
+			if ea.isAlive():
+				running.append(True)
+		
+		if True in running:
+			self.threading = True
 
 		return self.threading
 
 	def load_pickle_index(self):
-		pickle_file  = open(self.raw_index, "rb")
-		self.index = pickle.load(pickle_file)  
+		pickle_file  = open(self.current_index_path, "rb")
+		self.index = pickle.load(pickle_file)
 		pickle_file.close()
+		if self.current_index_path == self.op_index_path:
+			self.op_index = self.index
+		else:
+			self.bm_index = self.index
 		self.update_avaliable = False
 
 	def index_search(self):
 		t1 = time.time()
 		if self.update_avaliable:
-
 			try:
 				self.load_pickle_index()
 
@@ -312,6 +384,11 @@ class App():
 		self.inputField.delete(30, END)
 
 		results = []
+
+		if self.is_search_OP.get():
+			self.index = self.op_index
+		else:
+			self.index = self.bm_index
 
 		for key in self.index:
 			if re.search(keyword, key):
