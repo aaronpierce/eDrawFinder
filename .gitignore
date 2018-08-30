@@ -1,12 +1,4 @@
-*.bat
-*.p
-*.json
 *.lnk
-*.spec
-*[0-9].py
-*.exe
-\dist
-\build
 \__pycache__
-\DWG (Network)
-\eDrawingFinder (Network)
+\BuildFolder
+\Versions
