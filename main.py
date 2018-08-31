@@ -5,21 +5,27 @@ import subprocess
 import threading
 import time
 import pickle
+import logging
 from tkinter import *
 from tkinter.ttk import *
 
-VERSION = '1.6.3'
-LOGGING = False
-PRINTING = False
-PREBUILD = True
+VERSION = '1.6.7'
+LOG_ = { 
+		'disabled': logging.NOTSET,
+		'debug': logging.DEBUG,
+    	'info': logging.INFO,
+     	'warning': logging.WARNING,
+     	'error': logging.ERROR,
+      	'critical': logging.CRITICAL
+      	}
+LOGLEVEL = LOG_['warning']
 
-
-class DATA():
+class Data():
 
 	def __init__(self):
 		self.app_data = os.getenv('LOCALAPPDATA')
-		self.log_path = os.path.join(self.app_data, 'log.json')
 		self.app_data_path = os.path.join(self.app_data, 'eDrawingFinder')
+		self.log_path = os.path.join(self.app_data_path, 'eDrawLog.log')
 		if not os.path.exists(self.app_data_path):
 			try:
 				os.makedirs(self.app_data_path)
@@ -37,34 +43,20 @@ class DATA():
 			base_path = os.path.abspath(".")
 
 		return os.path.join(base_path, relative_path)
-	    
-	def log(self, outcome):
 
-		if not os.path.exists(self.log_path):
-			data = {}
-			data['Computer'] = os.environ['COMPUTERNAME']
-			data['Searched'] = 0
-			data['Found'] = 0
-			data['Opened'] = 0
-			data['Invalid'] = 0
-
-			with open(self.log_path, 'w') as f:
-				json.dump(data, f, indent=4)
-
-		with open(self.log_path, 'r+') as f:
-			raw = json.load(f)
-
-		if outcome == 'Searched':
-			raw['Searched'] += 1
-		elif outcome == 'Found':
-			raw['Found'] += 1
-		elif outcome == 'Opened':
-			raw['Opened'] += 1
-		elif outcome == 'Invalid':
-			raw['Invalid'] += 1
-
-		with open(self.log_path, 'w') as f:
-			json.dump(raw, f, indent=4)
+class Logger():
+	def __init__(self):
+		self.writter = logging.getLogger('main')
+		self.writter.setLevel(LOGLEVEL)
+		self.filehandler = logging.FileHandler(data.log_path)
+		self.consolehandler = logging.StreamHandler()
+		self.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%m-%d-%Y %I:%M:%S%p')
+		self.filehandler.setFormatter(self.formatter)
+		self.consolehandler.setFormatter(self.formatter)
+		if self.writter.level >= LOG_['warning']:
+			self.writter.addHandler(self.filehandler)
+		if self.writter.level < LOG_['warning']:
+			self.writter.addHandler(self.consolehandler)
 
 
 class App():
@@ -80,6 +72,7 @@ class App():
 		self.root.bind('<Down>', self.pull_history)
 		self.root.bind('<Left>', self.change_radio_select)
 		self.root.bind('<Right>', self.change_radio_select)
+		self.root.bind('<F1>', self.copy_item)    
 		self.root.iconbitmap(data.resource_path('resources\\logo.ico'))
 
 		self.frame_drawings = Frame(self.root)
@@ -91,12 +84,13 @@ class App():
 		self.drawing_limit = 15
 
 		self.appdata_file = data.app_data_path
-		self.index_builder = dict()
 		self.op_index_path = os.path.join(data.app_data_path, 'op_database.p')
 		self.bm_index_path = os.path.join(data.app_data_path, 'bm_database.p')
 		self.current_index_path = self.op_index_path
 		self.op_index = {}
 		self.bm_index = {}
+		self.index_builder_op = {}
+		self.index_builder_bm = {}
 		self.index = {}
 		self.update_avaliable = True
 
@@ -134,11 +128,14 @@ class App():
 		
 		self.threads = []
 		self.threading = False
+		self.lock = threading.Lock()
 		self.init_op_index = False
 		self.init_bm_index = False
 
 		self.previous_search = []
 		self.previous_counter = 0
+
+		self.log = Logger()
 
 	def displayButtons(self):
 		if self.drawingsRadio_instances != []:
@@ -171,8 +168,6 @@ class App():
 	def openDrawing(self):
 		if not self.selectedDrawing.get() == '':
 			os.startfile(self.selectedDrawing.get(), 'open')
-			if LOGGING:
-				data.log('Opened')
 
 		else:
 			self.change_info('No File Selected.')
@@ -196,9 +191,8 @@ class App():
 		if invalid == True or keyword == '':
 			error_state = True
 			self.change_info('Enter a valid part number.')
+			self.log.writter.info(f'Invalid Input ["{keyword}"]')
 			result = []
-			if LOGGING:
-				data.log('Invalid')
 
 		else:
 			if keyword not in self.previous_search:
@@ -209,12 +203,8 @@ class App():
 				self.previous_search.insert(0, self.previous_search.pop(self.previous_search.index(keyword)))
 
 			results = self.index_search()
-			if LOGGING:
-				data.log('Searched')
 
 		if results != [] and results != None:
-			if LOGGING:
-				data.log('Found')
 
 			if len(results) > self.drawing_limit:
 				self.drawingsOverLimit = True
@@ -241,28 +231,28 @@ class App():
 		self.displayButtons()
 
 	def create_index(self, index):
-		if PRINTING:
-			print(f'Building {index[-13::]}')
+		self.log.writter.info(f'Building {index[-13::]}')
 
 		if not self.index_exists(index):
 			self.change_info('Currently building index... Please wait to search.')
 
-		t1=time.time()
+		t1 = time.time()
 		path = 'H:\\DWG\\'
 		if index == self.bm_index_path:
 			path += 'BM\\'
 
 		self.file_scan(path)
 		pickle_file = open(index , "wb") 
-		pickle.dump(self.index_builder, pickle_file) 
-		pickle_file.close()
-		t2=time.time()
-		total =t2-t1
+		if index == self.op_index_path:
+			pickle.dump(self.index_builder_op, pickle_file)
+		else:
+			pickle.dump(self.index_builder_bm, pickle_file)
+		t2 = time.time()
+		total = t2-t1
 
 		self.update_avaliable = True
 
-		if PRINTING:
-			print(f"\nTime taken to create {index[-13::]}: {round(total, 4)}s")
+		self.log.writter.info(f'{index[-13::]} created. [{round(total, 4)}s]')
 
 		if self.init_op_index or self.init_bm_index:
 			self.change_info(f'Index database created. [Time Taken: {round(total, 2)}s]')
@@ -297,7 +287,6 @@ class App():
 				self.previous_counter -= 1
 			else:
 				clear_field = True
-
 		else:
 			return
 
@@ -319,26 +308,29 @@ class App():
 		self.threads = []
 		for i in indexes:
 			task = threading.Thread(target=self.create_index, args=[i])
+			task.setDaemon(False)
 			task.start()
 			self.threads.append(task)
 		self.threading = True
 
 	def file_scan(self, drive):
+		exclude = ['BM']
+
 		if drive == 'H:\\DWG\\':
-			for root, dir, files in os.walk(drive, topdown = True):
-				if 'OP' in root:
-					for file in files:
-						if file in self.index_builder:
-							pass
-						else:
-							self.index_builder[file]= root
-		else:
-			for root, dir, files in os.walk(drive, topdown = True):
+			for root, dirs, files in os.walk(drive, topdown = True):
+				dirs[:] = [d for d in dirs if d not in exclude]
 				for file in files:
-					if file in self.index_builder:
+					if file in self.index_builder_op:
 						pass
 					else:
-						self.index_builder[file]= root
+						self.index_builder_op[file]= root
+		else:
+			for root, dirs, files in os.walk(drive, topdown = True):
+				for file in files:
+					if file in self.index_builder_bm:
+						pass
+					else:
+						self.index_builder_bm[file]= root
 
 	def thread_running(self):
 		running = []
@@ -351,6 +343,13 @@ class App():
 
 		return self.threading
 
+	def copy_item(self, keypress=False):
+		raw = self.selectedDrawing.get()
+		item = raw.split('\\')[-1].split('.')[0]
+
+		self.root.clipboard_clear()
+		self.root.clipboard_append(item)
+
 	def load_pickle_index(self):
 		pickle_file  = open(self.current_index_path, "rb")
 		self.index = pickle.load(pickle_file)
@@ -359,6 +358,7 @@ class App():
 			self.op_index = self.index
 		else:
 			self.bm_index = self.index
+
 		self.update_avaliable = False
 
 	def index_search(self):
@@ -377,8 +377,7 @@ class App():
 					return
 
 			except Exception as e:
-				if PRINTING:
-					print(e)
+				self.log.writter.error(e)
 				sys.exit()
 
 		keyword = self.inputField.get()
@@ -386,34 +385,36 @@ class App():
 
 		results = []
 
+		#self.log.writter.info(f'Before\t: {self.current_index_path.split("_")[0][-2:].upper()} - {len(self.index)}')
+
 		if self.is_search_OP.get():
 			self.index = self.op_index
 		else:
 			self.index = self.bm_index
 
+		#self.log.writter.info(f'After\t: {self.current_index_path.split("_")[0][-2:].upper()} - {len(self.index)}')
+
+		if len(self.index) == 0:
+			self.log.writter.warning('Reloading index; Empty list found!')
+			self.load_pickle_index()
+
 		for key in self.index:
-			if re.search(keyword, key):
+			if re.search(keyword.lower(), key.lower()):
 				hit = f'{self.index[key]}'+'\\'+f'{key}'
 				results.append(hit)
 		
 		results.sort(key=len, reverse=False)
 
-		if PRINTING:
-			print("Path \t\t: File-name")
-			for each in results:
-				print(each)
-				print("---------------------------------")
-			t2 = time.time()
-			total =t2-t1
-			print("Total files are", len(results))
-			print(f"Time taken to search: {round(total, 4)}s\n")
-
+		t2 = time.time()
+		total = t2-t1
+		self.log.writter.info(f'Total {self.current_index_path.split("_")[0][-2:].upper()} files are {len(results)} [{round(total, 4)}s]')
 		return results
 
-data = DATA()
-
+data = Data()
 app = App()
-if PREBUILD:
-	app.pre_build()
+app.pre_build()
 
 app.root.mainloop()
+
+## ToDo ##
+#- Sometimes indexes with become 0 on search... (Currently patched with empty list check before search.)
