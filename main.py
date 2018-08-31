@@ -13,10 +13,10 @@ VERSION = '1.6.7'
 LOG_ = { 
 		'disabled': logging.NOTSET,
 		'debug': logging.DEBUG,
-    	'info': logging.INFO,
-     	'warning': logging.WARNING,
-     	'error': logging.ERROR,
-      	'critical': logging.CRITICAL
+		'info': logging.INFO,
+		'warning': logging.WARNING,
+		'error': logging.ERROR,
+		'critical': logging.CRITICAL
       	}
 LOGLEVEL = LOG_['warning']
 
