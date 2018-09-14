@@ -1,6 +1,5 @@
 import logging
 
-VERSION = '1.6.7'
 LOG_ = { 
 	'disabled': logging.NOTSET,
 	'debug': logging.DEBUG,
