@@ -1,11 +1,11 @@
 import errno
-import json
 import os
 import subprocess
 import threading
 import time
 import pickle
 import logging
+#import yaml
 from tkinter import *
 from tkinter.ttk import *
 
@@ -26,6 +26,10 @@ class Data():
 		self.app_data = os.getenv('LOCALAPPDATA')
 		self.app_data_path = os.path.join(self.app_data, 'eDrawingFinder')
 		self.log_path = os.path.join(self.app_data_path, 'eDrawLog.log')
+		self.config_path = os.path.join(self.app_data_path, 'config.yaml')
+		self.op_path = os.path.join(self.app_data_path, 'op_database.p')
+		self.bm_path = os.path.join(self.app_data_path, 'bm_database.p')
+
 		if not os.path.exists(self.app_data_path):
 			try:
 				os.makedirs(self.app_data_path)
@@ -75,6 +79,11 @@ class App():
 		self.root.bind('<F1>', self.copy_item)    
 		self.root.iconbitmap(data.resource_path('resources\\logo.ico'))
 
+		self.menubar = Menu(self.root)
+		self.menubar.add_command(label="Settings", command=self.show_settings)
+		self.menubar.add_command(label="Help", command=self.show_help)
+		self.root.config(menu=self.menubar)
+
 		self.frame_drawings = Frame(self.root)
 		self.frame_drawings.pack()
 		self.selectedDrawing = StringVar()
@@ -84,8 +93,8 @@ class App():
 		self.drawing_limit = 15
 
 		self.appdata_file = data.app_data_path
-		self.op_index_path = os.path.join(data.app_data_path, 'op_database.p')
-		self.bm_index_path = os.path.join(data.app_data_path, 'bm_database.p')
+		self.op_index_path = data.op_path
+		self.bm_index_path = data.bm_path
 		self.current_index_path = self.op_index_path
 		self.op_index = {}
 		self.bm_index = {}
@@ -350,6 +359,14 @@ class App():
 		self.root.clipboard_clear()
 		self.root.clipboard_append(item)
 
+	def show_settings(self, keypress=False):
+		settings = Settings(self.root)
+		settings.root.mainloop()
+
+	def show_help(self, keypress=False):
+		settings = Settings()
+		settings.root.mainloop()
+
 	def load_pickle_index(self):
 		pickle_file  = open(self.current_index_path, "rb")
 		self.index = pickle.load(pickle_file)
@@ -409,6 +426,26 @@ class App():
 		total = t2-t1
 		self.log.writter.info(f'Total {self.current_index_path.split("_")[0][-2:].upper()} files are {len(results)} [{round(total, 4)}s]')
 		return results
+
+
+class Settings():
+
+	def __init__(self, main):
+		self.root = Tk()
+		self.frame = Frame(self.root)
+		self.frame.master.title(f'Settings')
+		self.frame.pack()
+		self.core = main
+
+		self.root.iconbitmap(data.resource_path('resources\\settings.ico'))
+
+		self.titleLabel = Label(self.frame, text='--Optional Settings--', font=("Default", 10))
+		self.titleLabel.pack(padx=35, pady=2)
+
+		self.v = StringVar()
+		self.resultPathToggle = Checkbutton(self.frame, textvariable=self.v, offvalue=True, onvalue=False, variable=self.v)
+		self.resultPathToggle.pack(pady=4)
+
 
 data = Data()
 app = App()
