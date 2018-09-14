@@ -1,5 +1,7 @@
 *.lnk
 *.txt
 /__pycache__
+/components/__pycache__
 /BuildFolder
 /Versions
+

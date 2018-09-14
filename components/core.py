@@ -4,97 +4,53 @@ import subprocess
 import threading
 import time
 import pickle
-import logging
 #import yaml
-from tkinter import *
-from tkinter.ttk import *
+from functools import partial
+import tkinter as tk
+from tkinter import ttk
 
-VERSION = '1.6.7'
-LOG_ = { 
-	'disabled': logging.NOTSET,
-	'debug': logging.DEBUG,
-	'info': logging.INFO,
-	'warning': logging.WARNING,
-	'error': logging.ERROR,
-	'critical': logging.CRITICAL
-      	}
-LOGLEVEL = LOG_['warning']
+import components.data as data
+import components.settings as settings
+import components.logger as logger
+import components.information as information
 
-class Data():
+
+class Application():
 
 	def __init__(self):
-		self.app_data = os.getenv('LOCALAPPDATA')
-		self.app_data_path = os.path.join(self.app_data, 'eDrawingFinder')
-		self.log_path = os.path.join(self.app_data_path, 'eDrawLog.log')
-		self.config_path = os.path.join(self.app_data_path, 'config.yaml')
-		self.op_path = os.path.join(self.app_data_path, 'op_database.p')
-		self.bm_path = os.path.join(self.app_data_path, 'bm_database.p')
-
-		if not os.path.exists(self.app_data_path):
-			try:
-				os.makedirs(self.app_data_path)
-			except OSError as exception:
-				self.app_data_path = os.getcwd()
-				if exception.errno != errno.EEXIST:
-					raise
-
-	def resource_path(self, relative_path):
-		""" Get absolute path to resource, works for dev and for PyInstaller """
-		try:
-			# PyInstaller creates a temp folder and stores path in _MEIPASS
-			base_path = sys._MEIPASS
-		except Exception:
-			base_path = os.path.abspath(".")
-
-		return os.path.join(base_path, relative_path)
-
-class Logger():
-	def __init__(self):
-		self.writter = logging.getLogger('main')
-		self.writter.setLevel(LOGLEVEL)
-		self.filehandler = logging.FileHandler(data.log_path)
-		self.consolehandler = logging.StreamHandler()
-		self.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%m-%d-%Y %I:%M:%S%p')
-		self.filehandler.setFormatter(self.formatter)
-		self.consolehandler.setFormatter(self.formatter)
-		if self.writter.level >= LOG_['warning']:
-			self.writter.addHandler(self.filehandler)
-		if self.writter.level < LOG_['warning']:
-			self.writter.addHandler(self.consolehandler)
-
-
-class App():
-
-	def __init__(self):
-		self.root = Tk()
-		self.frame = Frame(self.root)
-		self.frame.master.title(f'eDrawing Finder v{VERSION}')
+		self.root = tk.Tk()
+		self.frame = ttk.Frame(self.root)
+		self.frame.master.title(f'eDrawing Finder v{settings.VERSION}')
 		self.frame.pack()
+
+		self.data = data.Data()
+		self.log = logger.Logger(self.data)
 
 		self.root.bind('<Return>', self.search)
 		self.root.bind('<Up>', self.pull_history)
 		self.root.bind('<Down>', self.pull_history)
 		self.root.bind('<Left>', self.change_radio_select)
 		self.root.bind('<Right>', self.change_radio_select)
-		self.root.bind('<F1>', self.copy_item)    
-		self.root.iconbitmap(data.resource_path('resources\\logo.ico'))
+		self.root.bind('<F1>', self.copy_item)
+		self.root.bind('<Control-Return>', self.openDrawing)  
+		self.root.iconbitmap(self.data.resource_path('components\\resources\\logo.ico'))
 
-		self.menubar = Menu(self.root)
+		self.menubar = tk.Menu(self.root)
 		self.menubar.add_command(label="Settings", command=self.show_settings)
 		self.menubar.add_command(label="Help", command=self.show_help)
 		self.root.config(menu=self.menubar)
 
-		self.frame_drawings = Frame(self.root)
+		self.frame_drawings = ttk.Frame(self.root)
 		self.frame_drawings.pack()
-		self.selectedDrawing = StringVar()
+		self.selectedDrawing = tk.StringVar()
 		self.drawings = []
 		self.drawingsRadio_instances = []
 		self.drawingsOverLimit = False
 		self.drawing_limit = 15
 
-		self.appdata_file = data.app_data_path
-		self.op_index_path = data.op_path
-		self.bm_index_path = data.bm_path
+		self.appdata_file = self.data.app_data_path
+		self.op_index_path = self.data.op_path
+		self.bm_index_path = self.data.bm_path
 		self.current_index_path = self.op_index_path
 		self.op_index = {}
 		self.bm_index = {}
@@ -103,33 +59,33 @@ class App():
 		self.index = {}
 		self.update_avaliable = True
 
-		self.inputLabel = Label(self.frame, text="Enter an Item Number Below:")
+		self.inputLabel = ttk.Label(self.frame, text="Enter an Item Number Below:")
 		self.inputLabel.grid(row=0, column=1, columnspan=12, pady=1)
 
-		self.inputField = Entry(self.frame, width=30)
+		self.inputField = ttk.Entry(self.frame, width=30)
 		self.inputField.grid(row=1, column=1, columnspan=12, padx=35, pady=1)
 		self.inputField.focus()
 
-		self.is_search_OP = IntVar()
-		self.radioButtonType = Radiobutton(self.frame, text='OP', variable=self.is_search_OP, value=1)
+		self.is_search_OP = tk.IntVar()
+		self.radioButtonType = ttk.Radiobutton(self.frame, text='OP', variable=self.is_search_OP, value=1)
 		self.radioButtonType.grid(row=2, column=6)
-		self.radioButtonType = Radiobutton(self.frame, text='BM', variable=self.is_search_OP, value=0)
+		self.radioButtonType = ttk.Radiobutton(self.frame, text='BM', variable=self.is_search_OP, value=0)
 		self.radioButtonType.grid(row=2, column=7)
 		self.is_search_OP.set(1)
 
 		self.button_width = 10
-		self.searchButton = Button(self.frame, text="Search", width=self.button_width, command=self.search)
+		self.searchButton = ttk.Button(self.frame, text="Search", width=self.button_width, command=self.search)
 		self.searchButton.grid(row=3, column=6, pady=2)
 
-		self.openButton = Button(self.frame, text="Open", width=self.button_width, command=self.openDrawing)
+		self.openButton = ttk.Button(self.frame, text="Open", width=self.button_width, command=self.openDrawing)
 		self.openButton.grid(row=3, column=7, pady=2)
 
-		self.frame_info = Frame(self.root)
+		self.frame_info = ttk.Frame(self.root)
 		self.frame_info.pack()
-		self.infoLabel = Label(self.frame_info, text='')
-		self.infoLabel.pack(side=BOTTOM, padx=2)
+		self.infoLabel = ttk.Label(self.frame_info, text='')
+		self.infoLabel.pack(side=tk.BOTTOM, padx=2)
 
-		# self.testButton = Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.load_pickle_index)
+		# self.testButton = ttk.Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.load_pickle_index)
 		# self.testButton.pack(side=BOTTOM, padx=2)
 
 		self.root.update()
@@ -143,8 +99,6 @@ class App():
 
 		self.previous_search = []
 		self.previous_counter = 0
-
-		self.log = Logger()
 
 	def displayButtons(self):
 		if self.drawingsRadio_instances != []:
@@ -162,8 +116,8 @@ class App():
 			self.selectedDrawing.set(self.drawings[0])
 
 	def createRadio(self, x):
-		self.drawingRadioButton = Radiobutton(self.frame_drawings, text=x, variable=self.selectedDrawing, value=x)
-		self.drawingRadioButton.pack(anchor=W, padx=5, pady=2)
+		self.drawingRadioButton = ttk.Radiobutton(self.frame_drawings, text=x, variable=self.selectedDrawing, value=x)
+		self.drawingRadioButton.pack(anchor=tk.W, padx=5, pady=2)
 		self.drawingsRadio_instances.append(self.drawingRadioButton)
 
 	def clearButtons(self):
@@ -174,7 +128,7 @@ class App():
 		self.infoLabel.config(text = message)
 		self.infoLabel.update_idletasks()
 
-	def openDrawing(self):
+	def openDrawing(self, keypress=False):
 		if not self.selectedDrawing.get() == '':
 			os.startfile(self.selectedDrawing.get(), 'open')
 
@@ -236,7 +190,7 @@ class App():
 				self.change_info(f'No {v} results matching {keyword} found.')
 
 		self.drawings = results
-		self.inputField.delete(0, END)
+		self.inputField.delete(0, tk.END)
 		self.displayButtons()
 
 	def create_index(self, index):
@@ -284,7 +238,7 @@ class App():
 		if keypress.keysym == 'Up' and self.previous_search != []:
 
 			if self.previous_search != [] and self.inputField.get() == '' and self.previous_counter == 0:
-				self.inputField.delete(0, END)
+				self.inputField.delete(0, tk.END)
 				self.inputField.insert(0, self.previous_search[self.previous_counter])
 
 			elif (self.previous_counter + 1) < len(self.previous_search):
@@ -299,7 +253,7 @@ class App():
 		else:
 			return
 
-		self.inputField.delete(0, END)
+		self.inputField.delete(0, tk.END)
 
 		if not clear_field:
 			self.inputField.insert(0, self.previous_search[self.previous_counter])
@@ -360,12 +314,10 @@ class App():
 		self.root.clipboard_append(item)
 
 	def show_settings(self, keypress=False):
-		settings = Settings(self.root)
-		settings.root.mainloop()
+		settings_window = settings.Settings(app_root=self.root, data=self.data)
 
 	def show_help(self, keypress=False):
-		settings = Settings()
-		settings.root.mainloop()
+		help_window = information.Help(data=self.data)
 
 	def load_pickle_index(self):
 		pickle_file  = open(self.current_index_path, "rb")
@@ -398,7 +350,7 @@ class App():
 				sys.exit()
 
 		keyword = self.inputField.get()
-		self.inputField.delete(30, END)
+		self.inputField.delete(30, tk.END)
 
 		results = []
 
@@ -416,7 +368,7 @@ class App():
 			self.load_pickle_index()
 
 		for key in self.index:
-			if re.search(keyword.lower(), key.lower()):
+			if tk.re.search(keyword.lower(), key.lower()):
 				hit = f'{self.index[key]}'+'\\'+f'{key}'
 				results.append(hit)
 		
@@ -426,32 +378,3 @@ class App():
 		total = t2-t1
 		self.log.writter.info(f'Total {self.current_index_path.split("_")[0][-2:].upper()} files are {len(results)} [{round(total, 4)}s]')
 		return results
-
-
-class Settings():
-
-	def __init__(self, main):
-		self.root = Tk()
-		self.frame = Frame(self.root)
-		self.frame.master.title(f'Settings')
-		self.frame.pack()
-		self.core = main
-
-		self.root.iconbitmap(data.resource_path('resources\\settings.ico'))
-
-		self.titleLabel = Label(self.frame, text='--Optional Settings--', font=("Default", 10))
-		self.titleLabel.pack(padx=35, pady=2)
-
-		self.v = StringVar()
-		self.resultPathToggle = Checkbutton(self.frame, textvariable=self.v, offvalue=True, onvalue=False, variable=self.v)
-		self.resultPathToggle.pack(pady=4)
-
-
-data = Data()
-app = App()
-app.pre_build()
-
-app.root.mainloop()
-
-## ToDo ##
-#- Sometimes indexes with become 0 on search... (Currently patched with empty list check before search.)
