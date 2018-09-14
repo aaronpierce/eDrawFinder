@@ -4,8 +4,6 @@ import subprocess
 import threading
 import time
 import pickle
-#import yaml
-from functools import partial
 import tkinter as tk
 from tkinter import ttk
 
@@ -23,8 +21,10 @@ class Application():
 		self.frame.master.title(f'eDrawing Finder v{settings.VERSION}')
 		self.frame.pack()
 
-		self.data = data.Data()
-		self.log = logger.Logger(self.data)
+		self.data = data.Data(self)
+		self.setting = settings.Settings(self)
+		self.log = logger.Logger(self)
+
 
 		self.root.bind('<Return>', self.search)
 		self.root.bind('<Up>', self.pull_history)
@@ -100,23 +100,42 @@ class Application():
 		self.previous_search = []
 		self.previous_counter = 0
 
+	def show_settings(self, keypress=False):
+		settings_window = self.setting.display(self)
+
+	def show_help(self, keypress=False):
+		help_window = information.Help(self)
+
 	def displayButtons(self):
+
 		if self.drawingsRadio_instances != []:
 			self.clearButtons()
 
 		if len(self.drawings) > self.drawing_limit:
+			if self.setting.fullfilepath:
 				for drawing in self.drawings[:self.drawing_limit]:
-					self.createRadio(drawing)
+					self.createRadio(drawing, drawing)
+			else:
+				for drawing in self.drawings[:self.drawing_limit]:
+					item_only = drawing.split('\\')[-1]
+					self.createRadio(item_only, drawing)
 
 		else:
-			for drawing in self.drawings:
-				self.createRadio(drawing)
-				
+			if self.setting.fullfilepath:
+				for drawing in self.drawings:
+					self.createRadio(drawing, drawing)
+					self.log.writter.debug(f'Full Path - {self.setting.fullfilepath}')
+			else:
+				for drawing in self.drawings:
+					item_only = drawing.split('\\')[-1]
+					self.createRadio(item_only, drawing)
+					self.log.writter.debug(f'Item Only - {self.setting.fullfilepath}')
+					
 		if self.drawings != []:
 			self.selectedDrawing.set(self.drawings[0])
 
-	def createRadio(self, x):
-		self.drawingRadioButton = ttk.Radiobutton(self.frame_drawings, text=x, variable=self.selectedDrawing, value=x)
+	def createRadio(self, t, v):
+		self.drawingRadioButton = ttk.Radiobutton(self.frame_drawings, text=t, variable=self.selectedDrawing, value=v)
 		self.drawingRadioButton.pack(anchor=tk.W, padx=5, pady=2)
 		self.drawingsRadio_instances.append(self.drawingRadioButton)
 
@@ -271,7 +290,7 @@ class Application():
 		self.threads = []
 		for i in indexes:
 			task = threading.Thread(target=self.create_index, args=[i])
-			task.setDaemon(False)
+			task.setDaemon(True)
 			task.start()
 			self.threads.append(task)
 		self.threading = True
@@ -312,12 +331,6 @@ class Application():
 
 		self.root.clipboard_clear()
 		self.root.clipboard_append(item)
-
-	def show_settings(self, keypress=False):
-		settings_window = settings.Settings(app_root=self.root, data=self.data)
-
-	def show_help(self, keypress=False):
-		help_window = information.Help(data=self.data)
 
 	def load_pickle_index(self):
 		pickle_file  = open(self.current_index_path, "rb")

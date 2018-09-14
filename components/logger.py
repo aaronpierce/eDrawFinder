@@ -11,8 +11,8 @@ LOG_ = {
 LOGLEVEL = LOG_['debug']
 
 class Logger():
-	def __init__(self, d):
-		self.data = d
+	def __init__(self, core_app):
+		self.data = core_app.data
 		self.writter = logging.getLogger('main')
 		self.writter.setLevel(LOGLEVEL)
 		self.filehandler = logging.FileHandler(self.data.log_path)
