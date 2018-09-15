@@ -20,6 +20,7 @@ class Application():
 		self.frame = ttk.Frame(self.root)
 		self.frame.master.title(f'eDrawing Finder')
 		self.frame.pack()
+		self.root.resizable(False, False)
 
 		self.data = data.Data(self)
 		self.setting = settings.Settings(self)

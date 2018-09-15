@@ -3,7 +3,7 @@ import yaml
 import tkinter as tk
 from tkinter import ttk
 
-VERSION = '1.7.0'
+VERSION = '1.8.0'
 
 class Settings():
 
@@ -22,27 +22,28 @@ class Settings():
 	def display(self):
 		self.frame = tk.Toplevel()
 		self.frame.wm_title('Settings')
+		self.frame.resizable(False, False)
 		
 		self.frame.iconbitmap(self.app.data.resource_path('components\\resources\\settings.ico'))
 
 		self.titleLabel = ttk.Label(self.frame, text="--Optional Settings--", font=("Default", 10))
-		self.titleLabel.grid(row=0, column=0, columnspan=10, padx=10, pady=1)
+		self.titleLabel.pack(side=tk.TOP, pady=4)
 
 		self.auto_open_bool = tk.BooleanVar()
 		self.auto_open_bool.set(self.auto_open)
 		self.autoOpenToggle = ttk.Checkbutton(self.frame, text='Auto-Open First Result', offvalue=False, onvalue=True, variable=self.auto_open_bool)
-		self.autoOpenToggle.grid(row=1, column=0, columnspan=10, padx=10, pady=2)
+		self.autoOpenToggle.pack(side=tk.TOP, anchor=tk.W, padx=10)
 
 		self.full_filepath_bool = tk.BooleanVar()
 		self.full_filepath_bool.set(self.full_filepath)
 		self.resultPathToggle = ttk.Checkbutton(self.frame, text='Show Full Filepath', offvalue=False, onvalue=True, variable=self.full_filepath_bool)
-		self.resultPathToggle.grid(row=2, column=0, columnspan=10, padx=10, pady=2)
+		self.resultPathToggle.pack(side=tk.TOP, anchor=tk.W, padx=10)
 
 		self.saveButton = ttk.Button(self.frame, text='Save', command=self.save_settings)
-		self.saveButton.grid(row=3, column=3, columnspan=2, padx=10, pady=4)
+		self.saveButton.pack(side=tk.LEFT, padx=10, pady=6)
 
 		self.cancelButton = ttk.Button(self.frame, text='Cancel', command=self.close_window)
-		self.cancelButton.grid(row=3, column=5, columnspan=2, padx=10, pady=4)
+		self.cancelButton.pack(side=tk.RIGHT, padx=10, pady=6)
 
 		self.frame.protocol("WM_DELETE_WINDOW", self.close_window)
 
