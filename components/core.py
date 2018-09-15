@@ -18,12 +18,13 @@ class Application():
 	def __init__(self):
 		self.root = tk.Tk()
 		self.frame = ttk.Frame(self.root)
-		self.frame.master.title(f'eDrawing Finder v{settings.VERSION}')
+		self.frame.master.title(f'eDrawing Finder')
 		self.frame.pack()
 
 		self.data = data.Data(self)
 		self.setting = settings.Settings(self)
 		self.log = logger.Logger(self)
+		self.info = information.Help(self)
 
 
 		self.root.bind('<Return>', self.search)
@@ -101,10 +102,19 @@ class Application():
 		self.previous_counter = 0
 
 	def show_settings(self, keypress=False):
-		settings_window = self.setting.display(self)
+		if not self.setting.settings_open:
+			self.setting.settings_open = True
+			settings_window = self.setting.display()
+		else:
+			self.setting.frame.focus_force()
+		
 
 	def show_help(self, keypress=False):
-		help_window = information.Help(self)
+		if not self.info.information_open:
+			self.info.information_open = True
+			help_window = self.info.display()
+		else:
+			self.info.frame.focus_force()
 
 	def displayButtons(self):
 
@@ -112,7 +122,7 @@ class Application():
 			self.clearButtons()
 
 		if len(self.drawings) > self.drawing_limit:
-			if self.setting.fullfilepath:
+			if self.setting.full_filepath:
 				for drawing in self.drawings[:self.drawing_limit]:
 					self.createRadio(drawing, drawing)
 			else:
@@ -121,18 +131,22 @@ class Application():
 					self.createRadio(item_only, drawing)
 
 		else:
-			if self.setting.fullfilepath:
+			if self.setting.full_filepath:
 				for drawing in self.drawings:
 					self.createRadio(drawing, drawing)
-					self.log.writter.debug(f'Full Path - {self.setting.fullfilepath}')
+					self.log.writter.debug(f'Full Path - {self.setting.full_filepath}')
 			else:
 				for drawing in self.drawings:
 					item_only = drawing.split('\\')[-1]
 					self.createRadio(item_only, drawing)
-					self.log.writter.debug(f'Item Only - {self.setting.fullfilepath}')
+					self.log.writter.debug(f'Item Only - {self.setting.full_filepath}')
 					
 		if self.drawings != []:
 			self.selectedDrawing.set(self.drawings[0])
+			if self.setting.auto_open:
+				self.openDrawing(keypress=False)
+				self.log.writter.info('Auto Opening Enabled at Search Time.')
+
 
 	def createRadio(self, t, v):
 		self.drawingRadioButton = ttk.Radiobutton(self.frame_drawings, text=t, variable=self.selectedDrawing, value=v)
