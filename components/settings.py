@@ -11,8 +11,8 @@ class Settings():
 		self.app = core_app
 		self.yaml = self.app.data.config_path
 		
-		self.default_settings = {'full_filepath': 'True',
-								'auto_open': 'False'}
+		self.default_settings = {'full_filepath': True,
+								'auto_open': False}
 
 		self.app.data.check_config(self.default_settings)
 		self.compile_settings()

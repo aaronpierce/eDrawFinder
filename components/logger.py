@@ -8,7 +8,7 @@ LOG_ = {
 	'error': logging.ERROR,
 	'critical': logging.CRITICAL
       	}
-LOGLEVEL = LOG_['debug']
+LOGLEVEL = LOG_['warning']
 
 class Logger():
 	def __init__(self, core_app):
