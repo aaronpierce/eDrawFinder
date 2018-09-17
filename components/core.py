@@ -1,9 +1,9 @@
-import errno
 import os
 import subprocess
 import threading
 import time
 import pickle
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -105,7 +105,7 @@ class Application():
 	def show_settings(self, keypress=False):
 		if not self.setting.settings_open:
 			self.setting.settings_open = True
-			settings_window = self.setting.display()
+			self.setting.display()
 		else:
 			self.setting.frame.focus_force()
 		
@@ -113,7 +113,7 @@ class Application():
 	def show_help(self, keypress=False):
 		if not self.info.information_open:
 			self.info.information_open = True
-			help_window = self.info.display()
+			self.info.display()
 		else:
 			self.info.frame.focus_force()
 
@@ -189,7 +189,7 @@ class Application():
 			error_state = True
 			self.change_info('Enter a valid part number.')
 			self.log.writter.info(f'Invalid Input ["{keyword}"]')
-			result = []
+			results = []
 
 		else:
 			if keyword not in self.previous_search:

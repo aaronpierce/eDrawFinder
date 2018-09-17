@@ -5,4 +5,5 @@ build.py
 /components/__pycache__
 /BuildFolder
 /Versions
-
+/.vscode
+/.pytest_cache
