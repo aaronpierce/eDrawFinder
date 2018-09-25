@@ -118,7 +118,10 @@ class Settings():
 
 	def change_default_viewer(self):
 		program_path = askopenfilename(filetypes=[("Application", "*.exe")])
-		self.open_with_string.set(program_path)
+		if program_path == '':
+			pass
+		else:
+			self.open_with_string.set(program_path)
 		self.frame.focus_set()
 
 	def test(self):
