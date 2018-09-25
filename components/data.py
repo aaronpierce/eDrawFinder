@@ -4,6 +4,7 @@ import sys
 import errno
 import winreg
 
+from re import match as re_match
 from pathlib import Path
 
 class Data():
@@ -39,24 +40,57 @@ class Data():
 				yaml.dump(defaults, file, default_flow_style=False)
 
 	def get_eDrawing_executable(self):
+		path = Path('.')
 		
+		# Attempt to find software install location using HKEY_CURRENT_USER
 		try:
-			key_local = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall')
+			key_local = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\eDrawings')
 			key_local_query = winreg.QueryInfoKey(key_local)
 
-			for i in range(key_local_query[0]):
-				tmp = winreg.OpenKey(key_local, winreg.EnumKey(key_local, i))
-				try:
-					location_check = winreg.QueryValueEx(tmp, r'InstallLocation')[0]
-					if 'eDrawings' in location_check:
-						location = location_check
-				except:
-					path = Path('.')
+			installed = [winreg.EnumKey(key_local, i) for i in range(key_local_query[0]) if re_match('.201.', winreg.EnumKey(key_local, i))]
+			version_dict = {}
 
-			files_in_location = os.listdir(location)
+			for item in installed:
+				temp_key = winreg.OpenKey(key_local, item)
+				if winreg.QueryInfoKey(temp_key)[1] > 1:
+					location = winreg.QueryValueEx(temp_key, r'InstallDir')[0]
+					version_dict[item] = location
+
+				winreg.CloseKey(temp_key)
+			winreg.CloseKey(key_local)
+
+			newest = f"e{max([int(k.strip('e')) for k in version_dict.keys()])}"
+
+			files_in_location = os.listdir(version_dict[newest])
 			path = Path(location, [app for app in files_in_location if app == 'eDrawings.exe'][0])
 
 		except:
-			path = Path('.')
+			# If abouve errors out, attempt to find software install location using HKEY_LOCAL_MACHINE
+			try:
+				key_local = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall')
+				key_local_query = winreg.QueryInfoKey(key_local)
+
+				location = None
+				for i in range(key_local_query[0]):
+					temp_key = winreg.OpenKey(key_local, winreg.EnumKey(key_local, i))
+					try:
+						location_check = winreg.QueryValueEx(temp_key, r'InstallLocation')[0]
+						if 'eDrawings' in location_check:
+							location = location_check
+					except:
+						pass
+
+				winreg.CloseKey(temp_key)
+				winreg.CloseKey(key_local)
+
+				if location is None:
+					raise Exception
+				else:
+					files_in_location = os.listdir(location)
+					path = Path(location, [app for app in files_in_location if app == 'eDrawings.exe'][0])
+
+			except:
+				# If both attempts error out, path = Path('.') which result in using os default for filetype.
+				pass
 			
 		return path
