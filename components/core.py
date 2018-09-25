@@ -4,6 +4,9 @@ import threading
 import time
 import pickle
 import sys
+
+from pathlib import Path
+
 import tkinter as tk
 from tkinter import ttk
 
@@ -87,8 +90,8 @@ class Application():
 		self.infoLabel = ttk.Label(self.frame_info, text='')
 		self.infoLabel.pack(side=tk.BOTTOM, padx=2)
 
-		# self.testButton = ttk.Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.load_pickle_index)
-		# self.testButton.pack(side=BOTTOM, padx=2)
+		# self.testButton = ttk.Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.test_function)
+		# self.testButton.pack(side=tk.BOTTOM, padx=2)
 
 		self.root.update()
 		self.root.minsize(self.root.winfo_width(), self.root.winfo_height())
@@ -135,12 +138,12 @@ class Application():
 			if self.setting.full_filepath:
 				for drawing in self.drawings:
 					self.createRadio(drawing, drawing)
-					self.log.writter.debug(f'Full Path - {self.setting.full_filepath}')
+					self.log.writter.info(f'Full Path - {self.setting.full_filepath}')
 			else:
 				for drawing in self.drawings:
 					item_only = drawing.split('\\')[-1]
 					self.createRadio(item_only, drawing)
-					self.log.writter.debug(f'Item Only - {self.setting.full_filepath}')
+					self.log.writter.info(f'Item Only - {self.setting.full_filepath}')
 					
 		if self.drawings != []:
 			self.selectedDrawing.set(self.drawings[0])
@@ -164,8 +167,16 @@ class Application():
 
 	def openDrawing(self, keypress=False):
 		if not self.selectedDrawing.get() == '':
-			os.startfile(self.selectedDrawing.get(), 'open')
-
+			if self.setting.open_with == Path('.'):
+				os.startfile(self.selectedDrawing.get(), 'open')
+			else:
+				self.log.writter.info(f'Opening via {self.setting.open_with} {self.selectedDrawing.get()}')
+				try:
+					subprocess.Popen(f'{self.setting.open_with} {self.selectedDrawing.get()}')
+				except OSError as e:
+					if e.errno == os.errno.ENOENT:
+						self.change_info(f"Unable to open using: '{self.setting.open_with}'.")
+				
 		else:
 			self.change_info('No File Selected.')
 
@@ -382,14 +393,10 @@ class Application():
 
 		results = []
 
-		#self.log.writter.info(f'Before\t: {self.current_index_path.split("_")[0][-2:].upper()} - {len(self.index)}')
-
 		if self.is_search_OP.get():
 			self.index = self.op_index
 		else:
 			self.index = self.bm_index
-
-		#self.log.writter.info(f'After\t: {self.current_index_path.split("_")[0][-2:].upper()} - {len(self.index)}')
 
 		if len(self.index) == 0:
 			self.log.writter.warning('Reloading index; Empty list found!')
@@ -406,3 +413,7 @@ class Application():
 		total = t2-t1
 		self.log.writter.info(f'Total {self.current_index_path.split("_")[0][-2:].upper()} files are {len(results)} [{round(total, 4)}s]')
 		return results
+
+	def test_function(self):
+		pass
+		

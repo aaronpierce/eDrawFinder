@@ -30,11 +30,11 @@ class Help():
 
 	def text(self):
 		strings = [
-		'           [<F1>]\t Copies selected item number',
-		'        [<Enter>]\t Searches given item number',
-		'    [<Ctl-Enter>]\t Opens the selected drawing',
-		'   [<Up>\\<Down>]\t Cycles through search history',
-		'[<Right>\\<Left>]\t Switches between "OP" & "BM"',
+		'         [<F1>]\t Copies selected item number',
+		'      [<Enter>]\t Searches given item number',
+		'  [<Ctl-Enter>]\t Opens the selected drawing',
+		'[<Up>/<Down>]\t Cycles through search history',
+		'[<Right>/<Left>]\t Switches between "OP" & "BM"',
 		]
 
 		# self.textBox = tk.Text(self.frame, width=20, height=20)
