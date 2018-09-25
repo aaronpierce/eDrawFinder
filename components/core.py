@@ -414,6 +414,6 @@ class Application():
 		self.log.writter.info(f'Total {self.current_index_path.split("_")[0][-2:].upper()} files are {len(results)} [{round(total, 4)}s]')
 		return results
 
-	def test_function(self):
-		pass
+	# def test_function(self):
+	# 	print(self.data.get_eDrawing_executable())
 		

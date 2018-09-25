@@ -16,7 +16,7 @@ class Settings():
 		
 		self.default_settings = {'full_filepath': True,
 								'auto_open': False,
-								'open_with': '.'}
+								'open_with': self.app.data.get_eDrawing_executable()}
 
 		self.app.data.check_config(self.default_settings)
 		self.compile_settings()
@@ -124,5 +124,5 @@ class Settings():
 			self.open_with_string.set(program_path)
 		self.frame.focus_set()
 
-	def test(self):
-		print(self.full_filepath)
+	# def test(self):
+	# 	print(self.full_filepath)

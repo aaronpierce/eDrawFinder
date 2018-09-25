@@ -1,6 +1,7 @@
 *.lnk
 *.txt
 build.py
+stuff.py
 /__pycache__
 /components/__pycache__
 /BuildFolder

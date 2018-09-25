@@ -2,6 +2,9 @@ import os
 import yaml
 import sys
 import errno
+import winreg
+
+from pathlib import Path
 
 class Data():
 
@@ -34,3 +37,26 @@ class Data():
 		if not os.path.exists(self.config_path):
 			with open(self.config_path, 'w+') as file:
 				yaml.dump(defaults, file, default_flow_style=False)
+
+	def get_eDrawing_executable(self):
+		
+		try:
+			key_local = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall')
+			key_local_query = winreg.QueryInfoKey(key_local)
+
+			for i in range(key_local_query[0]):
+				tmp = winreg.OpenKey(key_local, winreg.EnumKey(key_local, i))
+				try:
+					location_check = winreg.QueryValueEx(tmp, r'InstallLocation')[0]
+					if 'eDrawings' in location_check:
+						location = location_check
+				except:
+					path = Path('.')
+
+			files_in_location = os.listdir(location)
+			path = Path(location, [app for app in files_in_location if app == 'eDrawings.exe'][0])
+
+		except:
+			path = Path('.')
+			
+		return path
