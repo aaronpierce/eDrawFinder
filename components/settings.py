@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
 
-VERSION = '1.8.2'
+VERSION = '1.8.4'
 
 class Settings():
 
