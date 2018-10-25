@@ -4,7 +4,9 @@ build.py
 stuff.py
 /__pycache__
 /components/__pycache__
-/BuildFolder
+/BuildFolder.32
+/BuildFolder.64
 /Versions
 /.vscode
 /.pytest_cache
+/tests

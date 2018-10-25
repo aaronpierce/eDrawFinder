@@ -4,6 +4,7 @@ import threading
 import time
 import pickle
 import sys
+import pyautogui
 
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import components.data as data
 import components.settings as settings
 import components.logger as logger
 import components.information as information
+import components.converter as converter
 
 
 class Application():
@@ -29,6 +31,7 @@ class Application():
 		self.setting = settings.Settings(self)
 		self.log = logger.Logger(self)
 		self.info = information.Help(self)
+		self.converter = converter.Converter(self)
 
 
 		self.root.bind('<Return>', self.search)
@@ -90,8 +93,8 @@ class Application():
 		self.infoLabel = ttk.Label(self.frame_info, text='')
 		self.infoLabel.pack(side=tk.BOTTOM, padx=2)
 
-		# self.testButton = ttk.Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.test_function)
-		# self.testButton.pack(side=tk.BOTTOM, padx=2)
+		self.testButton = ttk.Button(self.frame_info, text="Function", width=self.button_width*2+3, command=self.test_function)
+		self.testButton.pack(side=tk.BOTTOM, padx=2)
 
 		self.root.update()
 		self.root.minsize(self.root.winfo_width(), self.root.winfo_height())
@@ -414,6 +417,5 @@ class Application():
 		self.log.writter.info(f'Total {self.current_index_path.split("_")[0][-2:].upper()} files are {len(results)} [{round(total, 4)}s]')
 		return results
 
-	# def test_function(self):
-	# 	print(self.data.get_eDrawing_executable())
-		
+	def test_function(self):
+		self.converter.printPDF(self.converter.toPDF())
