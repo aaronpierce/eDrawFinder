@@ -418,4 +418,5 @@ class Application():
 		return results
 
 	def test_function(self):
-		self.converter.printPDF(self.converter.toPDF())
+		pdf_file = self.converter.toPDF()
+		self.converter.printPDF(pdf_file)
