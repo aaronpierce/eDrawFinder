@@ -17,14 +17,17 @@ class Data():
 		self.config_path = os.path.join(self.app_data_path, 'config.yaml')
 		self.op_path = os.path.join(self.app_data_path, 'op_database.p')
 		self.bm_path = os.path.join(self.app_data_path, 'bm_database.p')
+		self.temp_files = os.path.join(self.app_data_path, 'temp')
 
-		if not os.path.exists(self.app_data_path):
-			try:
-				os.makedirs(self.app_data_path)
-			except OSError as exception:
-				self.app_data_path = os.getcwd()
-				if exception.errno != errno.EEXIST:
-					raise
+		for item in [self.app_data_path, self.temp_files]:
+			if not os.path.exists(item):
+				try:
+					os.makedirs(item)
+				except OSError as exception:
+					self.app_data_path = os.getcwd()
+					if exception.errno != errno.EEXIST:
+						raise
+
 
 	def resource_path(self, relative_path):
 		try:

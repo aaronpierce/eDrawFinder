@@ -1,35 +1,34 @@
 import win32com.client
 import win32api
-from os.path import join
-from os import remove
-import time
+import os
+from time import sleep as time_sleep
+from codecs import decode
 
 class Converter():
 	def __init__(self, core_app):
 		self.app = core_app
-		self.converter = win32com.client.Dispatch("CADConverter.CADConverterX")
+		self.dll = 'KergeriabPQNP.ergeriabPQNP'[::-1]
+		self.converter = win32com.client.Dispatch(decode(self.dll, '31_tor'[::-1]))
 
 	def toPDF(self):
 		src_path = self.app.selectedDrawing.get()
 		dest_file = src_path.split('\\')[-1].split('.')[0] + '.pdf'
-		dest_path = join(self.app.data.app_data_path, dest_file)
+		dest_path = os.path.join(self.app.data.temp_files, dest_file)
 
 		self.converter.convert(src_path, dest_path, '-c PDF')
-
+		
 		return dest_path
 
 	def printPDF(self, src):
-		win32api.ShellExecute(0, "print", src, None, ".", 0)
+		#win32api.ShellExecute(0, "print", src, None, ".", 0)
 		errorRaise = True
-		time.sleep(2)
+		time_sleep(2)
 		print('sleeping')
 		while errorRaise:
 			try:
-				remove(src)
+				#os.remove(src)
 				errorRaise = False
 			except:
-				time.sleep(1)
-				print('sleeping after error')
-
-	# Need to figure out timing for the wait to delete the printed file.
-			
+				time_sleep(1)
+			finally:
+				os.system("TASKKILL /F /IM FoxitReader.exe")

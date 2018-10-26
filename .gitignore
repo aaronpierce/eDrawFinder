@@ -10,3 +10,4 @@ stuff.py
 /.vscode
 /.pytest_cache
 /tests
+/DWGtoPDF
