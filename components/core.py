@@ -14,21 +14,23 @@ import components.data as data
 import components.settings as settings
 import components.logger as logger
 import components.information as information
-
+import components.updater as updater
 
 class Application():
 
 	def __init__(self):
 		self.root = tk.Tk()
 		self.frame = ttk.Frame(self.root)
-		self.frame.master.title(f'eDrawing Finder')
+		self.frame.master.title(f'eDrawing Finder - Lite')
 		self.frame.pack()
 		self.root.resizable(False, False)
 
 		self.data = data.Data(self)
+		self.updater = updater.Updater(self)
 		self.setting = settings.Settings(self)
 		self.log = logger.Logger(self)
 		self.info = information.Help(self)
+
 
 
 		self.root.bind('<Return>', self.search)
@@ -238,11 +240,15 @@ class Application():
 		self.inputField.delete(0, tk.END)
 		self.displayButtons()
 
-	def create_index(self, index):
+	def create_index(self, index, updating):
 		self.log.writter.info(f'Building {index[-13::]}')
 
 		if not self.index_exists(index):
 			self.change_info('Currently building index... Please wait to search.')
+		if updating:
+			self.change_info('Updating database.')
+			self.init_op_index = True
+			self.init_bm_index = True
 
 		t1 = time.time()
 		path = 'H:\\DWG\\'
@@ -311,11 +317,12 @@ class Application():
 		else:
 			self.is_search_OP.set(0)
 
-	def pre_build(self):
+	def pre_build(self, updating=False):
+		self.log.writter.info("Index build intilized")
 		indexes = [self.op_index_path, self.bm_index_path]
 		self.threads = []
 		for i in indexes:
-			task = threading.Thread(target=self.create_index, args=[i])
+			task = threading.Thread(target=self.create_index, args=[i, updating])
 			task.setDaemon(True)
 			task.start()
 			self.threads.append(task)
@@ -325,6 +332,7 @@ class Application():
 		exclude = ['BM']
 
 		if drive == 'H:\\DWG\\':
+			self.index_builder_op = {}
 			for root, dirs, files in os.walk(drive, topdown = True):
 				dirs[:] = [d for d in dirs if d not in exclude]
 				for file in files:
@@ -333,6 +341,7 @@ class Application():
 					else:
 						self.index_builder_op[file]= root
 		else:
+			self.index_builder_bm = {}
 			for root, dirs, files in os.walk(drive, topdown = True):
 				for file in files:
 					if file in self.index_builder_bm:
