@@ -1,10 +1,10 @@
 *.lnk
 *.txt
+*.bat
 build.py
+/build
 /__pycache__
 /components/__pycache__
-/BuildFolder64/
-/BuildFolder32/
 /Versions
 /.vscode
 /.pytest_cache
